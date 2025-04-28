@@ -67,14 +67,14 @@ node -v #升级完之后，查看一下版本确认
 hash -r #刷新你的 shell 中的命令缓存，让它重新找 node 的位置！
 ```
 
-### 2、**安装 Puppeteer 和 Express**
+### 2、**安装 Puppeteer 和 Express dotenv**
 
 
 ```bash
 mkdir -p /opt/fetchIAP-server
 cd /opt/fetchIAP-server
 pnpm init
-pnpm add puppeteer express
+pnpm add puppeteer express dotenv
 
 # 本地运行时，不用安装一下
 npm add pm2 -g
