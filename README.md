@@ -27,7 +27,19 @@
 
 因此，推荐在 Node.js 中 **自行实现爬虫 (方法三)**，并谨慎处理反爬问题，以稳定获取所需的应用内购信息。
 
-# **🛠 步骤1：搭建 VPS 版 Puppeteer API 服务**
+
+
+# 方法一：一键部署
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/qww2014/fetchIAP/main/deploy-fetchiap.sh)
+```
+
+
+
+# 方法二：逐步搭建
+
+## **🛠 步骤1：搭建 VPS 版 Puppeteer API 服务**
 
 ### 1、**准备环境**
 
@@ -348,7 +360,13 @@ Content-Type: application/json
 
 ✅ 抓到数据返回给客户端
 
+
+
 全球访问快到飞起，而且你的真实VPS IP对外完全隐藏了！
+
+
+
+
 
 
 
