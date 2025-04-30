@@ -30,7 +30,7 @@
 # 方法一：一键部署
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/qww2014/fetchIAP/main/deploy-fetchiap.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/qww2014/publicBashList/refs/heads/main/deploy-fetchiape.sh)
 ```
 
 # 方法二：逐步搭建
@@ -103,9 +103,9 @@ const TIMEOUT_PER_COUNTRY = 30000; // 每个国家超时时间(ms)
 // CORS 配置选项
 const corsOptions = {
   origin: '*', // 允许所有来源的请求
-  methods: ['GET', 'POST'],  // 允许的 HTTP 方法
+  methods: ['GET', 'POST'], // 允许的 HTTP 方法
   allowedHeaders: ['Content-Type', 'Authorization'], // 允许的请求头
-  credentials: false // 由于使用了 origin: '*'，credentials 必须设为 false
+  credentials: false, // 由于使用了 origin: '*'，credentials 必须设为 false
 };
 
 // 启用 CORS，使用配置选项
@@ -132,14 +132,24 @@ app.post('/iap', async (req, res) => {
   const { appId, countries = [], slug = '' } = req.body;
 
   if (!appId || !Array.isArray(countries) || countries.length === 0) {
-    return res.status(400).json({ success: false, error: '请求必须包含 appId 和 countries 列表！' });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        error: '请求必须包含 appId 和 countries 列表！',
+      });
   }
 
   const isValidCountryCode = (code) => /^[a-z]{2}$/i.test(code);
 
-  const invalidCountries = countries.filter(c => !isValidCountryCode(c));
+  const invalidCountries = countries.filter((c) => !isValidCountryCode(c));
   if (invalidCountries.length > 0) {
-    return res.status(400).json({ success: false, error: `国家代码格式错误：${invalidCountries.join(', ')}` });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        error: `国家代码格式错误：${invalidCountries.join(', ')}`,
+      });
   }
   const results = {};
 
@@ -148,7 +158,10 @@ app.post('/iap', async (req, res) => {
       console.log(`✨ 查询 ${country.toUpperCase()}...`);
 
       try {
-        const items = await fetchIAPWithTimeout({ appId, country, slug }, TIMEOUT_PER_COUNTRY);
+        const items = await fetchIAPWithTimeout(
+          { appId, country, slug },
+          TIMEOUT_PER_COUNTRY
+        );
         results[country] = items;
       } catch (err) {
         console.error(`⚠️ 查询 ${country.toUpperCase()} 失败：${err.message}`);
@@ -159,7 +172,9 @@ app.post('/iap', async (req, res) => {
     res.json({ success: true, data: results });
   } catch (err) {
     console.error('❌ 总体查询失败:', err);
-    res.status(500).json({ success: false, error: '服务器内部错误', details: err.message });
+    res
+      .status(500)
+      .json({ success: false, error: '服务器内部错误', details: err.message });
   }
 });
 
@@ -186,7 +201,7 @@ ctrl + X
 
 const puppeteer = require('puppeteer');
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const purchaseLabelMap = {
   us: 'In-App Purchases',
@@ -203,8 +218,11 @@ const purchaseLabelMap = {
 async function autoScrollUntil(page, selector, timeout = 10000) {
   console.log(`🔍 开始自动滚动，等待出现元素: ${selector}`);
   const start = Date.now();
-  while ((Date.now() - start) < timeout) {
-    const found = await page.evaluate(sel => !!document.querySelector(sel), selector);
+  while (Date.now() - start < timeout) {
+    const found = await page.evaluate(
+      (sel) => !!document.querySelector(sel),
+      selector
+    );
     if (found) {
       console.log(`✅ 找到了目标元素: ${selector}`);
       break;
@@ -215,7 +233,9 @@ async function autoScrollUntil(page, selector, timeout = 10000) {
 }
 
 async function fetchIAP({ appId, country = 'us', slug = '' }) {
-  console.log(`🚀 [${country.toUpperCase()}] 开始抓取应用ID: ${appId}, Slug: ${slug}`);
+  console.log(
+    `🚀 [${country.toUpperCase()}] 开始抓取应用ID: ${appId}, Slug: ${slug}`
+  );
 
   const url = slug
     ? `https://apps.apple.com/${country}/app/${slug}/id${appId}`
@@ -225,7 +245,7 @@ async function fetchIAP({ appId, country = 'us', slug = '' }) {
 
   const browser = await puppeteer.launch({
     headless: 'new',
-    executablePath: '/usr/bin/chromium',  // 注意实际路径
+    executablePath: '/usr/bin/chromium', // 注意实际路径
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
@@ -234,7 +254,9 @@ async function fetchIAP({ appId, country = 'us', slug = '' }) {
   try {
     console.log(`🛠️ 设置Headers和UserAgent...`);
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
-    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36');
+    await page.setUserAgent(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+    );
 
     console.log(`⏳ 页面加载中...`);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -243,11 +265,14 @@ async function fetchIAP({ appId, country = 'us', slug = '' }) {
     await autoScrollUntil(page, 'dt.information-list__item__term');
     await sleep(500);
 
-    const purchaseLabel = purchaseLabelMap[country.toLowerCase()] || 'In-App Purchases';
+    const purchaseLabel =
+      purchaseLabelMap[country.toLowerCase()] || 'In-App Purchases';
     console.log(`🛒 搜索内购标题: ${purchaseLabel}`);
 
-    const items = await page.evaluate(label => {
-      const sections = Array.from(document.querySelectorAll('dt.information-list__item__term'));
+    const items = await page.evaluate((label) => {
+      const sections = Array.from(
+        document.querySelectorAll('dt.information-list__item__term')
+      );
       let matchedSection = null;
 
       for (const dt of sections) {
@@ -263,11 +288,17 @@ async function fetchIAP({ appId, country = 'us', slug = '' }) {
       }
 
       const results = [];
-      matchedSection.querySelectorAll('li.list-with-numbers__item').forEach(li => {
-        const name = li.querySelector('.list-with-numbers__item__title')?.textContent.trim();
-        const price = li.querySelector('.list-with-numbers__item__price')?.textContent.trim();
-        if (name && price) results.push({ name, price });
-      });
+      matchedSection
+        .querySelectorAll('li.list-with-numbers__item')
+        .forEach((li) => {
+          const name = li
+            .querySelector('.list-with-numbers__item__title')
+            ?.textContent.trim();
+          const price = li
+            .querySelector('.list-with-numbers__item__price')
+            ?.textContent.trim();
+          if (name && price) results.push({ name, price });
+        });
       console.log(`📦 内购信息抓取完成: 共 ${results.length} 项`);
       return results;
     }, purchaseLabel);
@@ -283,7 +314,6 @@ async function fetchIAP({ appId, country = 'us', slug = '' }) {
 }
 
 module.exports = { fetchIAP };
-
 ```
 
 ### 5、**启动服务器**
