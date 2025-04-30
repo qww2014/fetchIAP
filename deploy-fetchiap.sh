@@ -12,7 +12,7 @@ sudo apt install -y nodejs
 
 # 安装 pnpm
 echo "✨ 安装 pnpm 包管理器..."
-npm install -g pnpm
+sudo npm install -g pnpm
 
 # 创建项目目录
 echo "✨ 创建 /opt/fetchIAP-server ..."
@@ -24,9 +24,9 @@ cd /opt/fetchIAP-server
 echo "✨ 初始化 Node.js 项目..."
 pnpm init
 
-# 安装 Puppeteer + Express + dotenv
-echo "✨ 安装 Puppeteer、Express 和 dotenv..."
-pnpm add puppeteer express dotenv
+# 安装依赖
+echo "✨ 安装项目依赖..."
+pnpm add puppeteer express dotenv cors
 
 # 安装浏览器
 echo "✨ 检测服务器架构并安装浏览器..."
@@ -59,8 +59,6 @@ echo "✨ 记录浏览器路径：$CHROME_EXECUTABLE_PATH"
 
 # 把实际路径保存到 .env 文件
 echo "CHROME_EXECUTABLE_PATH=\"$CHROME_EXECUTABLE_PATH\"" > /opt/fetchIAP-server/.env
-
-
 
 # 安装 PM2 全局守护
 echo "✨ 安装 PM2 进程守护工具..."
@@ -165,46 +163,49 @@ EOF
 
 # 写入 server.js（最新并发+超时版）
 cat > server.js << 'EOF'
+/*
+ * @Author: Lao Qiao
+ * @Date: 2025-04-28
+ * @FilePath: /fetchIAP-multi/server.js
+ * 小美出品，必属精品 ✨
+ */
+
 const express = require('express');
+const cors = require('cors');
 const { fetchIAP } = require('./fetchIAP');
 
 const app = express();
 const port = 3000;
-const TIMEOUT_PER_COUNTRY = 30000;
-const MAX_CONCURRENT_COUNTRIES = 5;
+const TIMEOUT_PER_COUNTRY = 30000; // 每个国家超时时间(ms)
+
+// CORS 配置选项
+const corsOptions = {
+  origin: '*', // 允许所有来源的请求 
+  //origin: ['http://localhost:8080', 'http://yourfrontend.com'], // 允许的前端域名
+  methods: ['GET', 'POST'],  // 允许的 HTTP 方法
+  allowedHeaders: ['Content-Type', 'Authorization'], // 允许的请求头
+  credentials: false // 由于使用了 origin: '*'，credentials 必须设为 false
+};
+
+// 启用 CORS，使用配置选项
+app.use(cors(corsOptions));
 
 app.use(express.json());
 
+// 健康检查接口
 app.get('/', (req, res) => {
   res.send('✨ FetchIAP Server 正常运行中！');
 });
 
+// 单国家查询，附带超时保护
 const fetchIAPWithTimeout = (params, timeoutMs = 30000) => {
   return Promise.race([
     fetchIAP(params),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('抓取超时')), timeoutMs))
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('抓取超时')), timeoutMs)
+    ),
   ]);
 };
-
-async function promisePool(tasks, limit) {
-  const results = [];
-  const executing = [];
-
-  for (const task of tasks) {
-    const p = Promise.resolve().then(() => task());
-    results.push(p);
-
-    if (limit <= tasks.length) {
-      const e = p.then(() => executing.splice(executing.indexOf(e), 1));
-      executing.push(e);
-      if (executing.length >= limit) {
-        await Promise.race(executing);
-      }
-    }
-  }
-
-  return Promise.all(results);
-}
 
 app.post('/iap', async (req, res) => {
   const { appId, countries = [], slug = '' } = req.body;
@@ -213,44 +214,35 @@ app.post('/iap', async (req, res) => {
     return res.status(400).json({ success: false, error: '请求必须包含 appId 和 countries 列表！' });
   }
 
+  const isValidCountryCode = (code) => /^[a-z]{2}$/i.test(code);
+
+  const invalidCountries = countries.filter(c => !isValidCountryCode(c));
+  if (invalidCountries.length > 0) {
+    return res.status(400).json({ success: false, error: `国家代码格式错误：${invalidCountries.join(', ')}` });
+  }
+  const results = {};
+
   try {
-    const tasks = countries.map((country) => async () => {
+    for (const country of countries) {
       console.log(`✨ 查询 ${country.toUpperCase()}...`);
 
-      const startTime = Date.now();
       try {
         const items = await fetchIAPWithTimeout({ appId, country, slug }, TIMEOUT_PER_COUNTRY);
-        const endTime = Date.now();
-        return {
-          [country]: {
-            success: true,
-            time_ms: endTime - startTime,
-            data: items
-          }
-        };
+        results[country] = items;
       } catch (err) {
-        const endTime = Date.now();
         console.error(`⚠️ 查询 ${country.toUpperCase()} 失败：${err.message}`);
-        return {
-          [country]: {
-            success: false,
-            time_ms: endTime - startTime,
-            error: err.message
-          }
-        };
+        results[country] = { error: err.message };
       }
-    });
+    }
 
-    const allResultsArray = await promisePool(tasks, MAX_CONCURRENT_COUNTRIES);
-    const allResults = Object.assign({}, ...allResultsArray);
-
-    res.json({ success: true, data: allResults });
+    res.json({ success: true, data: results });
   } catch (err) {
     console.error('❌ 总体查询失败:', err);
     res.status(500).json({ success: false, error: '服务器内部错误', details: err.message });
   }
 });
 
+// 启动服务器
 app.listen(port, () => {
   console.log(`🚀 FetchIAP Server 已启动，监听端口 ${port}`);
 });
@@ -258,8 +250,8 @@ EOF
 
 # 启动 PM2 守护
 echo "✨ 使用 PM2 启动服务器..."
-pm2 start server.js --name fetchIAP-server
-pm2 save
-pm2 startup
+sudo pm2 start server.js --name fetchIAP-server
+sudo pm2 save
+sudo pm2 startup
 
 echo "✅ 部署完成！API服务运行在 3000端口，由 PM2守护中！"

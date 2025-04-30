@@ -6,12 +6,23 @@
  */
 
 const express = require('express');
+const cors = require('cors');
 const { fetchIAP } = require('./fetchIAP');
 
 const app = express();
 const port = 3000;
 const TIMEOUT_PER_COUNTRY = 30000; // 每个国家超时时间(ms)
 
+// CORS 配置选项
+const corsOptions = {
+  origin: '*', // 允许所有来源的请求
+  methods: ['GET', 'POST'],  // 允许的 HTTP 方法
+  allowedHeaders: ['Content-Type', 'Authorization'], // 允许的请求头
+  credentials: false // 由于使用了 origin: '*'，credentials 必须设为 false
+};
+
+// 启用 CORS，使用配置选项
+app.use(cors(corsOptions));
 
 app.use(express.json());
 
