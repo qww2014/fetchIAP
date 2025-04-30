@@ -34,12 +34,10 @@ async function autoScrollUntil(page, selector, timeout = 10000) {
   }
 }
 
-async function fetchIAP({ appId, country = 'us', slug = '' }) {
-  console.log(`🚀 [${country.toUpperCase()}] 开始抓取应用ID: ${appId}, Slug: ${slug}`);
+async function fetchIAP({ appId, country = 'us' }) {
+  console.log(`🚀 [${country.toUpperCase()}] 开始抓取应用ID: ${appId}`);
 
-  const url = slug
-    ? `https://apps.apple.com/${country}/app/${slug}/id${appId}`
-    : `https://apps.apple.com/${country}/app/id${appId}`;
+  const url = `https://apps.apple.com/${country}/app/id${appId}`;
 
   console.log(`🌐 访问URL: ${url}`);
 

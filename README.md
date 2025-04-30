@@ -69,7 +69,7 @@ hash -r #刷新你的 shell 中的命令缓存，让它重新找 node 的位置�
 mkdir -p /opt/fetchIAP-server
 cd /opt/fetchIAP-server
 pnpm init
-pnpm add puppeteer express dotenv  cors
+pnpm add puppeteer express dotenv cors
 
 # 本地运行时，不用安装一下
 npm add pm2 -g
@@ -132,24 +132,20 @@ app.post('/iap', async (req, res) => {
   const { appId, countries = [], slug = '' } = req.body;
 
   if (!appId || !Array.isArray(countries) || countries.length === 0) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        error: '请求必须包含 appId 和 countries 列表！',
-      });
+    return res.status(400).json({
+      success: false,
+      error: '请求必须包含 appId 和 countries 列表！',
+    });
   }
 
   const isValidCountryCode = (code) => /^[a-z]{2}$/i.test(code);
 
   const invalidCountries = countries.filter((c) => !isValidCountryCode(c));
   if (invalidCountries.length > 0) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        error: `国家代码格式错误：${invalidCountries.join(', ')}`,
-      });
+    return res.status(400).json({
+      success: false,
+      error: `国家代码格式错误：${invalidCountries.join(', ')}`,
+    });
   }
   const results = {};
 
