@@ -43,7 +43,7 @@ async function fetchIAP({ appId, country = 'us' }) {
 
   const browser = await puppeteer.launch({
     headless: 'new',
-    executablePath: '/usr/bin/chromium',  // 注意实际路径
+    // executablePath: process.env.CHROME_EXECUTABLE_PATH || undefined, // 脚本运行使时用
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
