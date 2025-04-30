@@ -21,13 +21,11 @@
 
 综合来看，**方法三：直接自行爬取 App Store 网页** 最能满足 “Node.js 实现、免费使用、频繁查询内购详情” 的核心需求。虽然需要自行处理反爬虫策略（如控制请求频率、模拟浏览器行为），并且要维护应对网页结构变化的代码，但这是唯一能完全免费、自主控制并确实获取到内购项目列表的方案。
 
-* **方法二 (开源库)** 可作为获取应用基础信息的辅助手段，但获取内购仍需结合 **方法三** 的爬虫逻辑。
-* **方法四 (第三方 API)** 适合低频或有预算的场景，其免费额度通常难以支撑长期、频繁的查询需求。
-* **方法一 (官方 API)** 因无法提供内购列表，不满足需求。
+- **方法二 (开源库)** 可作为获取应用基础信息的辅助手段，但获取内购仍需结合 **方法三** 的爬虫逻辑。
+- **方法四 (第三方 API)** 适合低频或有预算的场景，其免费额度通常难以支撑长期、频繁的查询需求。
+- **方法一 (官方 API)** 因无法提供内购列表，不满足需求。
 
 因此，推荐在 Node.js 中 **自行实现爬虫 (方法三)**，并谨慎处理反爬问题，以稳定获取所需的应用内购信息。
-
-
 
 # 方法一：一键部署
 
@@ -35,11 +33,9 @@
 bash <(curl -fsSL https://raw.githubusercontent.com/qww2014/fetchIAP/main/deploy-fetchiap.sh)
 ```
 
-
-
 # 方法二：逐步搭建
 
-## **🛠 步骤1：搭建 VPS 版 Puppeteer API 服务**
+## **🛠 步骤 1：搭建 VPS 版 Puppeteer API 服务**
 
 ### 1、**准备环境**
 
@@ -50,7 +46,7 @@ sudo apt install -y nodejs npm
 sudo npm install -g pnpm
 ```
 
-### 1.1、查看node版本 如果高于18略过,直接1.2，否则：（建议安装最新）
+### 1.1、查看 node 版本 如果高于 18 略过,直接 1.2，否则：（建议安装最新）
 
 ```bash
 sudo npm install -g n
@@ -69,12 +65,11 @@ hash -r #刷新你的 shell 中的命令缓存，让它重新找 node 的位置�
 
 ### 2、**安装 Puppeteer 和 Express dotenv**
 
-
 ```bash
 mkdir -p /opt/fetchIAP-server
 cd /opt/fetchIAP-server
 pnpm init
-pnpm add puppeteer express dotenv
+pnpm add puppeteer express dotenv  cors
 
 # 本地运行时，不用安装一下
 npm add pm2 -g
@@ -98,12 +93,23 @@ nano server.js
  */
 
 const express = require('express');
+const cors = require('cors');
 const { fetchIAP } = require('./fetchIAP');
 
 const app = express();
 const port = 3000;
 const TIMEOUT_PER_COUNTRY = 30000; // 每个国家超时时间(ms)
 
+// CORS 配置选项
+const corsOptions = {
+  origin: '*', // 允许所有来源的请求
+  methods: ['GET', 'POST'],  // 允许的 HTTP 方法
+  allowedHeaders: ['Content-Type', 'Authorization'], // 允许的请求头
+  credentials: false // 由于使用了 origin: '*'，credentials 必须设为 false
+};
+
+// 启用 CORS，使用配置选项
+app.use(cors(corsOptions));
 
 app.use(express.json());
 
@@ -195,35 +201,50 @@ const purchaseLabelMap = {
 };
 
 async function autoScrollUntil(page, selector, timeout = 10000) {
+  console.log(`🔍 开始自动滚动，等待出现元素: ${selector}`);
   const start = Date.now();
   while ((Date.now() - start) < timeout) {
     const found = await page.evaluate(sel => !!document.querySelector(sel), selector);
-    if (found) break;
+    if (found) {
+      console.log(`✅ 找到了目标元素: ${selector}`);
+      break;
+    }
     await page.evaluate(() => window.scrollBy(0, window.innerHeight / 2));
     await sleep(100);
   }
 }
 
 async function fetchIAP({ appId, country = 'us', slug = '' }) {
+  console.log(`🚀 [${country.toUpperCase()}] 开始抓取应用ID: ${appId}, Slug: ${slug}`);
+
   const url = slug
     ? `https://apps.apple.com/${country}/app/${slug}/id${appId}`
     : `https://apps.apple.com/${country}/app/id${appId}`;
 
+  console.log(`🌐 访问URL: ${url}`);
+
   const browser = await puppeteer.launch({
     headless: 'new',
+    executablePath: '/usr/bin/chromium',  // 注意实际路径
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
+
   const page = await browser.newPage();
 
   try {
+    console.log(`🛠️ 设置Headers和UserAgent...`);
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36');
+
+    console.log(`⏳ 页面加载中...`);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
+    console.log(`🔄 页面加载完成，准备滚动加载内容...`);
     await autoScrollUntil(page, 'dt.information-list__item__term');
     await sleep(500);
 
     const purchaseLabel = purchaseLabelMap[country.toLowerCase()] || 'In-App Purchases';
+    console.log(`🛒 搜索内购标题: ${purchaseLabel}`);
 
     const items = await page.evaluate(label => {
       const sections = Array.from(document.querySelectorAll('dt.information-list__item__term'));
@@ -236,7 +257,10 @@ async function fetchIAP({ appId, country = 'us', slug = '' }) {
         }
       }
 
-      if (!matchedSection) return [];
+      if (!matchedSection) {
+        console.log(`❌ 未找到内购信息区块: ${label}`);
+        return [];
+      }
 
       const results = [];
       matchedSection.querySelectorAll('li.list-with-numbers__item').forEach(li => {
@@ -244,19 +268,23 @@ async function fetchIAP({ appId, country = 'us', slug = '' }) {
         const price = li.querySelector('.list-with-numbers__item__price')?.textContent.trim();
         if (name && price) results.push({ name, price });
       });
+      console.log(`📦 内购信息抓取完成: 共 ${results.length} 项`);
       return results;
     }, purchaseLabel);
 
     return items;
+  } catch (err) {
+    console.error(`❌ [${country.toUpperCase()}] 抓取过程出错:`, err.message);
+    throw err;
   } finally {
+    console.log(`🧹 关闭浏览器实例...`);
     await browser.close();
   }
 }
 
 module.exports = { fetchIAP };
+
 ```
-
-
 
 ### 5、**启动服务器**
 
@@ -280,11 +308,9 @@ pm2 startup
 POST http://your-vps-ip:3000/iap
 ```
 
-来查询内购了！内购抓取后立即返回JSON！
+来查询内购了！内购抓取后立即返回 JSON！
 
-
-
-# **🛠 步骤2：部署 Cloudflare Worker 作为API代理**
+# **🛠 步骤 2：部署 Cloudflare Worker 作为 API 代理**
 
 ### 1、**登录 Cloudflare**
 
@@ -309,7 +335,7 @@ export default {
 
 ✅ 这个 Worker 是一个**全透明中继**：
 
-客户端访问 Worker ➔ Worker把请求中转到你VPS ➔ 再把结果返回
+客户端访问 Worker ➔ Worker 把请求中转到你 VPS ➔ 再把结果返回
 
 ## **🎯 整体效果**
 
@@ -354,21 +380,13 @@ Content-Type: application/json
 }
 ```
 
-✅ Worker转发到你的VPS爬虫
+✅ Worker 转发到你的 VPS 爬虫
 
-✅ Puppeteer启动浏览器查内购
+✅ Puppeteer 启动浏览器查内购
 
 ✅ 抓到数据返回给客户端
 
-
-
-全球访问快到飞起，而且你的真实VPS IP对外完全隐藏了！
-
-
-
-
-
-
+全球访问快到飞起，而且你的真实 VPS IP 对外完全隐藏了！
 
 如果提示服务器系统里缺少 Chrome 必须依赖的共享库
 
@@ -394,4 +412,3 @@ sudo apt install -y \
 pm2 reload fetchIAP-server
 
 ```
-
